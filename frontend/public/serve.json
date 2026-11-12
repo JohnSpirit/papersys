@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/papersys/assets/:path*", "destination": "/assets/:path*" },
+    { "source": "/papersys/favicon.svg", "destination": "/favicon.svg" },
+    { "source": "/papersys", "destination": "/index.html" },
+    { "source": "/papersys/:path*", "destination": "/index.html" }
+  ]
+}

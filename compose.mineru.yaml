@@ -1,0 +1,36 @@
+# 可选本地 GPU MinerU 服务。先按 MinerU 官方文档构建镜像，
+# 再用 MINERU_IMAGE 指定镜像名；默认读取本地已有的 mineru:latest。
+# 用法：docker compose -f compose.yaml -f compose.mineru.yaml up -d
+services:
+  mineru:
+    image: ${MINERU_IMAGE:-mineru:latest}
+    entrypoint: mineru-api
+    command: ["--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MINERU_MODEL_SOURCE: ${MINERU_MODEL_SOURCE:-local}
+    restart: unless-stopped
+    ipc: host
+    ulimits:
+      memlock: -1
+    healthcheck:
+      test: ["CMD-SHELL", "nvidia-smi -L && curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 10
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  web:
+    environment:
+      PAPER_MINERU_MODE: local
+      PAPER_MINERU_LOCAL_API_BASE: http://mineru:8000
+      PAPER_MINERU_LOCAL_CONTAINER: ""
+    depends_on:
+      mineru:
+        condition: service_healthy

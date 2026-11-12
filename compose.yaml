@@ -1,0 +1,60 @@
+# papersys 3.11.2-open 容器编排（默认配置：MinerU Cloud）。
+#
+# 访问边界：本版本没有登录体系。容器内 Gunicorn 监听 0.0.0.0 由
+# PAPER_ALLOW_REMOTE=1 显式允许，但真正的访问边界是宿主机的回环发布
+# （127.0.0.1:8080 / 127.0.0.1:5051）；其他机器请用 SSH 隧道访问：
+#   ssh -L 8080:127.0.0.1:8080 <部署机>
+# 数据统一在命名卷 paper-data 的 /data（SQLite、文库、缓存、日志、inbox）。
+# 密钥经 env_file 注入容器环境变量，.env 不挂载、不进镜像。
+services:
+  web:
+    build: .
+    image: paper-open:3.11.2-open
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PAPER_DATA_DIR: /data
+      PAPER_BIND: 0.0.0.0:5050
+      PAPER_ALLOW_REMOTE: "1"
+    volumes:
+      - paper-data:/data
+    ports:
+      - "127.0.0.1:8080:5050"
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  # 可选 MCP HTTP：docker compose --profile mcp up -d
+  mcp:
+    profiles: ["mcp"]
+    build: .
+    image: paper-open:3.11.2-open
+    command: ["python", "-m", "backend.cli", "mcp", "--transport", "http", "--host", "0.0.0.0", "--port", "5051"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PAPER_DATA_DIR: /data
+      PAPER_ALLOW_REMOTE: "1"
+      PAPER_HEALTH_URL: http://web:5050/api/health
+    volumes:
+      - paper-data:/data
+    ports:
+      - "127.0.0.1:5051:5051"
+    # mcp 只跑 MCP 服务器（uvicorn 5051），不跑 Flask；必须覆盖镜像继承的
+    # Web 健康检查（docker/healthcheck.py 查 /api/health，会误探 5050）。
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket,sys;s=socket.socket();s.settimeout(5);sys.exit(s.connect_ex(('127.0.0.1',5051)))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    # web 先启动并完成 init_db 初始化 /data 上的数据库，mcp 再开始服务。
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+volumes:
+  paper-data:

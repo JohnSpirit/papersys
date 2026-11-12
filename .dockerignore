@@ -1,0 +1,46 @@
+# 版本控制
+.git/
+
+# 密钥：绝不进入构建上下文（镜像层、构建参数、日志同理）
+.env
+.env.*
+!.env.example
+
+# 前端依赖与构建产物（dist 由多阶段构建重新生成）
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-verify/
+
+# Python 缓存与打包产物
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+
+# 测试与 e2e 产物
+test-results/
+playwright-report/
+frontend/test-results/
+frontend/playwright-report/
+
+# 本地数据、运行时产物与内部材料
+papers-inbox
+.context/
+*.db
+*.db-wal
+*.db-shm
+
+# 运维脚本与文档不进镜像（镜像只 COPY 必要路径，双保险）
+scripts/
+docs/
+
+# 日志
+*.log
+logs/
+
+# 编辑器与 OS
+.vscode/
+.idea/
+.DS_Store

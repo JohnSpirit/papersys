@@ -1,0 +1,130 @@
+# 文献调研系统 3.11.2-open 配置
+# 存储 fully 本地化（library_root），不依赖 NAS 挂载；无登录体系。
+#
+# 环境变量覆盖（容器部署常用）：
+#   PAPER_CONFIG_PATH          指定本文件位置（默认 <项目根>/config.toml）
+#   PAPER_DATA_DIR             统一数据根目录（db/cache/logs/library/inbox 全部落在其下）
+#   PAPER_BIND / PAPER_HOST / PAPER_PORT   监听地址
+#   PAPER_ALLOW_REMOTE=1       显式允许非回环监听（无认证，默认拒绝并告警）
+#   PAPER_HEALTH_URL           CLI 健康检查地址
+#   PAPER_MINERU_MODE / PAPER_MINERU_API_BASE / PAPER_MINERU_LOCAL_API_BASE
+#   PAPER_LLM_API_URL / PAPER_LLM_MODEL
+#   PAPER_RETRIEVAL_EMBED_BASE_URL / PAPER_RETRIEVAL_EMBED_MODEL
+#   PAPER_RETRIEVAL_RERANK_BASE_URL / PAPER_RETRIEVAL_RERANK_MODEL
+# 密钥一律走环境变量或 .env（MINERU_TOKEN / LLM_API_KEY / FIREWORKS_API_KEY 等）。
+
+[paths]
+# 本地数据目录（SQLite + 缓存 + 文库归档；PAPER_DATA_DIR 可整体改写）
+data_dir     = "~/papers-data"
+db_path      = "~/papers-data/papers.db"
+cache_dir    = "~/papers-data/cache"
+log_dir      = "~/papers-data/logs"
+
+# 文库真相源（PDF 归档 + MinerU 解析结果 + 图片）
+# 布局: library/{year}/{dir_name}/{dir_name}.pdf / full.md / images/
+library_root = "~/papers-data/library"
+
+# 手动 PDF 投递入口（本地目录；watcher 可监听）
+inbox_dir    = "~/papers-data/inbox"
+
+[server]
+host = "127.0.0.1"
+port = 5050
+debug = true
+# CORS 允许的来源。浏览器正常路径走前端同源 /api（不触发 CORS）；此列表覆盖
+# 直连 127.0.0.1:5050 的调试场景。其他来源的跨站请求拿不到 CORS 响应头。
+cors_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# CLI 健康检查地址；与实际部署监听地址保持一致，其他部署用 PAPER_HEALTH_URL 覆盖。
+health_url = "http://127.0.0.1:5050/api/health"
+
+[workers]
+# 翻译并发数（Volces 限制下推荐 1-3）
+translate_concurrency = 2
+# 其他 worker（parse/enrich/embed 的 pipeline）并发数。本地 MinerU 冷启动
+# 期间并发请求会卡死 vllm 引擎，批量解析时建议设为 1。
+default_concurrency = 1
+# 摘要并发数（纯 LLM 调用，不经过 MinerU，与解析并发无关）
+summary_concurrency = 3
+# 瞬时错误与重启恢复的最大自动重试次数（超过后标 error）
+max_task_retries = 3
+# 单 chunk 最大字符数（超出则按段落边界二次切分；避免 LLM output 截断）
+max_chunk_chars = 6000
+
+[external]
+# 限频参数（每秒最大请求数）
+semantic_scholar_rps = 1.0
+openalex_rps         = 5.0
+arxiv_rps            = 0.33
+sciverse_rpm         = 60
+# Europe PMC（abstract 第三源；官方无硬配额，礼貌限速）
+europepmc_rps        = 3.0
+# 磁盘缓存 TTL（小时）
+cache_ttl_hours = 24
+
+[mineru]
+# "cloud" = MinerU 官方云 API（需 MINERU_TOKEN，走 file-urls/batch + 轮询 + ZIP 下载）
+# "local" = 本机或独立部署的 MinerU API（/file_parse 同步接口，见 compose.mineru.yaml）
+mode = "cloud"
+# 云 API 配置（mode="cloud" 时使用）
+api_base = "https://mineru.net/api/v4"
+default_model = "pipeline"
+# 本地 MinerU 服务配置（mode="local" 时使用）
+local_api_base = "http://127.0.0.1:8001"
+# doctor 与定时检查使用的容器名；空字符串禁用容器 GPU 检查（应用容器内无
+# Docker CLI，应留空或指向独立运维组件）
+local_container = ""
+# 本地解析后端：pipeline（纯 CPU 兼容）/ vlm-engine / hybrid-engine（GPU，默认）
+local_backend = "hybrid-engine"
+# hybrid 后端精度档位：medium（更快，无图像分析）/ high（含图像分析，更慢）
+local_effort = "high"
+# 本地 /file_parse 同步请求超时（秒）；CPU 解析大文件可能超过 5 分钟
+local_timeout = 1800
+
+[llm]
+# 翻译/总结用的通用 LLM 端点（OpenAI Chat Completions 兼容协议；
+# Volces ark / DeepSeek / Kimi / OpenRouter / vLLM / Ollama 等均可）。
+# api_url 为完整 chat/completions URL（含路径）。API Key 在 .env 的 LLM_API_KEY。
+api_url = "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions"
+model = "deepseek-v4.1-flash-economy"
+temperature = 0.3
+# 总结输入（剥参考文献后的正文）字符上限。2026-10-17 全库实测：正文 p50=6.9 万、
+# p95=15.2 万字符；15 万 ≈ 38-43k token（英文 3.5-4 字符/token），128k 上下文模型
+# 可承受且覆盖 95% 论文。按所配模型的实际上下文调小（如 32k 上下文模型设 80000）。
+max_input_chars = 150000
+# 用量费用折算（元 / 百万 tokens，按所配模型填写；当前为 deepseek-v4.1-flash 价）
+price_input_per_mtok = 2.0
+price_cached_input_per_mtok = 0.04
+price_output_per_mtok = 8.0
+
+[retrieval]
+# 托管两阶段检索（3.1，独立实现，流程设计参考 BrainPilot；不实现本地模型模式）
+# 四模式变量 embed_base_url/embed_model/rerank_base_url/rerank_model 必须全部设置；
+# 只设一部分 = 配置错误（检索返回 Incomplete hosted config 并指明缺失项）
+# API key 走 .env：BP_EMBED_API_KEY/BP_RERANK_API_KEY -> FIREWORKS_API_KEY -> ARK_API_KEY
+embed_base_url = "https://api.fireworks.ai/inference/v1"
+embed_model = "accounts/fireworks/models/qwen3-embedding-8b"
+# qwen3-embedding-8b 默认输出 4096 维；查询与建库必须同模型同维度
+embed_dimensions = 1024
+rerank_base_url = "https://api.fireworks.ai/inference/v1"
+rerank_model = "accounts/fireworks/models/qwen3-reranker-8b"
+# 第一阶段召回候选 = topk × candidate_multiplier
+candidate_multiplier = 10
+# 精排开关：false 退化为纯余弦一阶段检索（库小时省每次约 1~2s 网络往返）
+rerank_enabled = true
+# 精排分数阈值：低于阈值的结果被过滤。
+# 标定记录（2026-09-02）：实测 Fireworks 托管 qwen3-reranker-8b 的 relevance_score
+# 落在 0~1（该端点已做归一化，与本地 bge-reranker 标度类似而非裸 logit）；
+# 10 组已知查询样本分布：相关 0.62~0.996，不相关 0.0000，呈双峰 -> 0.5 可分。
+# 换端点/换模型后须重新标定（paper doctor 的精排验证请求可观察分数标度）。
+rerank_threshold = 0.5
+# 单次检索载入 embeddings 表的行数上限（防御性保护：当前量级数百篇 × 约 100 chunks；
+# 达到上限时检索结果带 truncated=true 标记，提示需调大或走向量索引方案）
+search_max_embeddings = 200000
+# 精排单文档输入截断（字符）：paper chunk 上限 6000，显式截断控制 token 成本与超时风险
+rerank_max_chars = 4000
+# 请求超时（秒）
+embed_timeout = 60
+rerank_timeout = 120
+# 嵌入单条输入截断（字符）：qwen3-embedding-8b 上下文上限 40959 token，
+# LaTeX 密集文本约 2~3 字符/token；个别 chunk 无段落边界可超 130K 字符，必须显式截断
+embed_max_chars = 6000

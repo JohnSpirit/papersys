@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-side-bg text-side-fg antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  :where(button, a, input, select, textarea, summary):focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: rgb(30 64 175 / 0.65);
+  }
+}
+
+@layer components {
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border;
+  }
+  .badge-gray   { @apply badge bg-gray-700/40 text-gray-200 border-gray-600; }
+  .badge-blue   { @apply badge bg-blue-900/40 text-blue-200 border-blue-700; }
+  .badge-green  { @apply badge bg-green-900/40 text-green-200 border-green-700; }
+  .badge-red    { @apply badge bg-red-900/40 text-red-200 border-red-700; }
+  .badge-amber  { @apply badge bg-amber-900/40 text-amber-200 border-amber-700; }
+
+  .btn {
+    @apply inline-flex min-h-8 items-center justify-center gap-1.5 rounded border border-side-border
+           bg-gray-800/60 px-3 py-1.5 text-sm font-medium text-gray-100 transition-colors
+           hover:bg-gray-700/70 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn border-blue-600 bg-blue-700 hover:bg-blue-600;
+  }
+  .input {
+    @apply min-h-8 rounded border border-side-border bg-gray-900 px-2 py-1 text-sm
+           text-side-fg placeholder-gray-400 focus:border-blue-500 focus:outline-none;
+  }
+  .card {
+    @apply rounded-lg border border-side-border bg-gray-900/40 p-4;
+  }
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.62);
+  backdrop-filter: blur(2px);
+}
+
+.markdown-body {
+  max-width: 85ch;
+  margin-inline: auto;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+.markdown-body h1 { @apply mt-7 mb-3 text-2xl font-semibold leading-snug text-gray-100; }
+.markdown-body h2 { @apply mt-6 mb-2 text-xl font-semibold leading-snug text-gray-100; }
+.markdown-body h3 { @apply mt-5 mb-2 text-lg font-medium text-gray-200; }
+.markdown-body h4 { @apply mt-4 mb-1 text-base font-medium text-gray-200; }
+.markdown-body p  { @apply my-3; }
+.markdown-body ul { @apply my-3 list-disc pl-6; }
+.markdown-body ol { @apply my-3 list-decimal pl-6; }
+.markdown-body li { @apply my-1; }
+.markdown-body blockquote { @apply my-3 border-l-2 border-gray-500 pl-3 italic text-gray-300; }
+.markdown-body hr { @apply my-5 border-side-border; }
+.markdown-body pre { @apply my-3 overflow-x-auto rounded border border-side-border bg-gray-900/80 p-3 text-xs leading-relaxed; }
+.markdown-body .katex-display { @apply my-4 overflow-x-auto overflow-y-hidden; }
+.markdown-body .katex { font-size: 1.02em; }
+.markdown-body details { @apply my-3 rounded border border-side-border bg-gray-900/40 px-3 py-2; }
+.markdown-body summary { @apply cursor-pointer font-medium text-gray-200; }
+.markdown-body mark { @apply rounded-sm bg-amber-700/60 px-0.5 text-amber-50; }
+.markdown-body mark.annotation-target { outline: 2px solid #fbbf24; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
