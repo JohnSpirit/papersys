@@ -15,6 +15,9 @@ RUN ALLOW_ROOT_BASE_BUILD=1 npm run build
 
 # ── 阶段 2：Python 运行环境 ──
 FROM python:3.12-slim-bookworm AS runtime
+LABEL org.opencontainers.image.source=https://github.com/JohnSpirit/papersys \
+      org.opencontainers.image.description="Local-first literature research, reading, and retrieval system" \
+      org.opencontainers.image.licenses=AGPL-3.0
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1

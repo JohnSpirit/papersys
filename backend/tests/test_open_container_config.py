@@ -182,6 +182,9 @@ def test_dockerfile_multi_stage_and_non_root():
     assert "HEALTHCHECK" in text
     assert "gunicorn" in text and "backend/gunicorn.conf.py" in text
     assert "PAPER_DATA_DIR=/data" in text
+    assert "org.opencontainers.image.source=https://github.com/JohnSpirit/papersys" in text
+    assert "org.opencontainers.image.licenses=AGPL-3.0" in text
+    assert "COPY LICENSE ./" in text
 
 
 def test_dockerignore_excludes_env_and_build_artifacts():
